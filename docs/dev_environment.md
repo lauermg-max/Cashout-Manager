@@ -31,6 +31,10 @@ Delete `C:\Users\<you>\.gift_card_manager\gift_card_manager.sqlite3` and rerun t
 
 Retailer formats currently cover Best Buy, Doordash, Lowe's, Home Depot, and Amazon (`src/gift_card_manager/io/gift_card_csv.py`).
 
+## Orders UI Notes
+- Orders tab uses `OrderService` to maintain gift card balances when orders are created, edited, or deleted.
+- Gift card allocations are captured via the order dialog; insufficient balances raise validation errors from the service layer.
+
 ## Static Checks
 ```bash
 python -m compileall src

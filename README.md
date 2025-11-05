@@ -4,7 +4,7 @@ Desktop application for tracking discounted gift cards, orders, inventory, sales
 
 ## Features (Planned)
 - Gift card inventory with CSV import/export per retailer (Doordash, Best Buy, Lowe's, Home Depot, Amazon).
-- Orders module with receipt attachments, gift card usage tracking, and CSV import/export.
+- Orders module with retailer filtering, gift card allocations, balance updates, and CSV import/export.
 - Physical inventory tracking tied to delivered orders and manual adjustments.
 - Sales tracking with profit reporting.
 - Analytics dashboard summarizing balances, status counts, and time-filtered stats.

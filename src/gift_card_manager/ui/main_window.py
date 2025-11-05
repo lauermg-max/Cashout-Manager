@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from ..core.settings import settings
 from .gift_cards import GiftCardInventoryTab
+from .orders import OrdersTab
 
 
 class MainWindow(QMainWindow):
@@ -33,7 +34,7 @@ class MainWindow(QMainWindow):
 
     def _create_tabs(self) -> None:
         self._tab_widget.addTab(GiftCardInventoryTab(self), "Gift Cards")
-        self._tab_widget.addTab(self._placeholder_tab("Orders"), "Orders")
+        self._tab_widget.addTab(OrdersTab(self), "Orders")
         self._tab_widget.addTab(self._placeholder_tab("Inventory"), "Inventory")
         self._tab_widget.addTab(self._placeholder_tab("Sales"), "Sales")
         self._tab_widget.addTab(self._placeholder_tab("Accounts"), "Accounts")
