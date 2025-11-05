@@ -21,6 +21,7 @@ class Retailer(TimestampMixin, Base):
     __tablename__ = "retailers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(16), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     requires_pin: Mapped[bool] = mapped_column(default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(String(500))

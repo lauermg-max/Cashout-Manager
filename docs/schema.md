@@ -2,6 +2,7 @@
 
 ### Retailers (`retailers`)
 - `id` INTEGER PRIMARY KEY AUTOINCREMENT
+- `code` TEXT UNIQUE NOT NULL
 - `name` TEXT UNIQUE NOT NULL
 - `requires_pin` BOOLEAN NOT NULL DEFAULT 0
 - `notes` TEXT NULL
