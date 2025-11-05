@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Date, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -50,6 +50,6 @@ class SaleItem(Base):
     line_cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
 
     sale: Mapped[Sale] = relationship("Sale", back_populates="items")
-    inventory_item: Mapped["InventoryItem" | None] = relationship(
+    inventory_item: Mapped[Optional["InventoryItem"]] = relationship(
         "InventoryItem", back_populates="sale_items"
     )
