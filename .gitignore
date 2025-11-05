@@ -1,4 +1,5 @@
 # Python
+# Python
 __pycache__/
 *.py[cod]
 *.sqlite3
@@ -12,6 +13,7 @@ __pycache__/
 dist/
 build/
 *.spec
+*.egg-info/
 
 # Virtual environments
 .venv/
