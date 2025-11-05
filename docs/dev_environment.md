@@ -6,18 +6,7 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
-```
-
-## Editable Install (Optional but Recommended)
-Install the project in editable mode so the package can be imported without setting `PYTHONPATH` manually.
-```bash
 pip install -e .
-```
-
-Alternatively, set `PYTHONPATH` permanently for the current shell session:
-```bash
-set PYTHONPATH=%CD%\src       # Windows
-export PYTHONPATH=$PWD/src     # macOS / Linux
 ```
 
 ## Running the Application
@@ -26,6 +15,21 @@ python -m gift_card_manager
 # or
 python src/gift_card_manager/app.py
 ```
+
+## Database Migrations
+```bash
+alembic upgrade head
+alembic revision -m "describe change"
+```
+
+### Resetting the SQLite Database
+Delete `C:\Users\<you>\.gift_card_manager\gift_card_manager.sqlite3` and rerun the app to recreate with the latest schema.
+
+## CSV Utilities (Work in Progress)
+- `import_gift_cards_from_csv(path, retailer_code, session)` parses CSV data into structured rows without committing to the database.
+- `export_gift_cards_to_csv(path, retailer_code, session)` writes gift cards for a retailer to a CSV file.
+
+Retailer formats currently cover Best Buy, Doordash, Lowe's, Home Depot, and Amazon (`src/gift_card_manager/io/gift_card_csv.py`).
 
 ## Static Checks
 ```bash

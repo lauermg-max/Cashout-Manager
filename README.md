@@ -39,6 +39,7 @@ tests/               # Automated tests
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -e .
 python -m gift_card_manager
 ```
 
@@ -46,6 +47,7 @@ python -m gift_card_manager
 
 ## Documentation
 - `docs/schema.md` — current database schema blueprint.
+- `docs/dev_environment.md` — environment setup, migrations, and tooling notes.
 
 ## Packaging (Planned)
 ```bash
