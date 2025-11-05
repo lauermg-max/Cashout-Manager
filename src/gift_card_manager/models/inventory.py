@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -59,4 +59,4 @@ class InventoryMovement(Base):
     notes: Mapped[str | None] = mapped_column(String(500))
 
     inventory_item: Mapped[InventoryItem] = relationship("InventoryItem", back_populates="movements")
-    order_item: Mapped["OrderItem" | None] = relationship("OrderItem", back_populates="inventory_links")
+    order_item: Mapped[Optional["OrderItem"]] = relationship("OrderItem", back_populates="inventory_links")
