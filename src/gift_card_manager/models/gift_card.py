@@ -50,7 +50,7 @@ class GiftCardUsage(TimestampMixin, Base):
     usage_date: Mapped[date] = mapped_column(Date(), nullable=False, default=date.today)
 
     gift_card: Mapped[GiftCard] = relationship("GiftCard", back_populates="usages")
-    order: Mapped["Order" | None] = relationship("Order", back_populates="gift_cards_used")
+    order: Mapped["Order | None"] = relationship("Order", back_populates="gift_cards_used")
 
 
 if TYPE_CHECKING:
