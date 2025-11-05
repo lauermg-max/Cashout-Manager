@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QLabel, QMainWindow, QStatusBar, QTabWidget, QWidget
+from PySide6.QtWidgets import (
+    QLabel,
+    QMainWindow,
+    QStatusBar,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ..core.settings import settings
+from .gift_cards import GiftCardInventoryTab
 
 
 class MainWindow(QMainWindow):
@@ -24,7 +32,7 @@ class MainWindow(QMainWindow):
         self._create_status_bar()
 
     def _create_tabs(self) -> None:
-        self._tab_widget.addTab(self._placeholder_tab("Gift Card Inventory"), "Gift Cards")
+        self._tab_widget.addTab(GiftCardInventoryTab(self), "Gift Cards")
         self._tab_widget.addTab(self._placeholder_tab("Orders"), "Orders")
         self._tab_widget.addTab(self._placeholder_tab("Inventory"), "Inventory")
         self._tab_widget.addTab(self._placeholder_tab("Sales"), "Sales")
@@ -35,8 +43,6 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         layout = widget.layout()  # type: ignore[assignment]
         if layout is None:
-            from PySide6.QtWidgets import QVBoxLayout
-
             layout = QVBoxLayout()
             widget.setLayout(layout)
 
