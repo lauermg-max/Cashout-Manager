@@ -35,6 +35,10 @@ Retailer formats currently cover Best Buy, Doordash, Lowe's, Home Depot, and Ama
 - Orders tab uses `OrderService` to maintain gift card balances when orders are created, edited, or deleted.
 - Gift card allocations are captured via the order dialog; insufficient balances raise validation errors from the service layer.
 
+## Inventory UI Notes
+- Inventory tab uses `InventoryService` to apply stock adjustments and maintain average cost.
+- Manual adjustments require either a quantity change or cost change; negative balances are prevented by service-level validation.
+
 ## Static Checks
 ```bash
 python -m compileall src
