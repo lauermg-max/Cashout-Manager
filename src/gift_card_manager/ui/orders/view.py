@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...core import session_scope
-from ...models import Order, Retailer
+from ...models import Order, OrderItem, Retailer
 from ...services import OrderService
 from .dialogs import OrderDialog
 from .model import OrdersTableModel
@@ -212,12 +212,25 @@ class OrdersView(QWidget):
                 order_email=result.order_email,
                 payment_method=result.payment_method,
                 status=result.status,
-                subtotal=result.subtotal,
-                tax=result.tax,
-                shipping=result.shipping,
+                subtotal=result.items_subtotal,
+                tax=Decimal("0.00"),
+                shipping=Decimal("0.00"),
                 total_cost=result.total_cost,
                 credit_card_spend=result.credit_card_spend,
+                gift_card_spend=Decimal("0.00"),
             )
+
+            for item_entry in result.items:
+                order.items.append(
+                    OrderItem(
+                        item_name=item_entry.item_name,
+                        sku=item_entry.sku,
+                        upc=item_entry.upc,
+                        quantity=item_entry.quantity,
+                        unit_price=item_entry.unit_price,
+                        total_price=item_entry.total_price,
+                    )
+                )
 
             service = OrderService(session)
 
@@ -260,11 +273,24 @@ class OrdersView(QWidget):
             db_order.order_email = result.order_email
             db_order.payment_method = result.payment_method
             db_order.status = result.status
-            db_order.subtotal = result.subtotal
-            db_order.tax = result.tax
-            db_order.shipping = result.shipping
+            db_order.subtotal = result.items_subtotal
+            db_order.tax = Decimal("0.00")
+            db_order.shipping = Decimal("0.00")
             db_order.total_cost = result.total_cost
             db_order.credit_card_spend = result.credit_card_spend
+
+            db_order.items.clear()
+            for item_entry in result.items:
+                db_order.items.append(
+                    OrderItem(
+                        item_name=item_entry.item_name,
+                        sku=item_entry.sku,
+                        upc=item_entry.upc,
+                        quantity=item_entry.quantity,
+                        unit_price=item_entry.unit_price,
+                        total_price=item_entry.total_price,
+                    )
+                )
 
             service = OrderService(session)
 
