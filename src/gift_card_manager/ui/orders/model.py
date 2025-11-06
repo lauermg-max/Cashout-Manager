@@ -87,7 +87,8 @@ class OrdersTableModel(QAbstractTableModel):
         if column == 4:
             return self._format_currency(order.gift_card_spend)
         if column == 5:
-            return order.status.value if hasattr(order.status, "value") else str(order.status)
+            status = order.status.value if hasattr(order.status, "value") else str(order.status or "")
+            return status.title()
         return ""
 
     @staticmethod

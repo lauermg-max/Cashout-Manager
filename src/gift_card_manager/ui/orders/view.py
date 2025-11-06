@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from sqlalchemy.orm import selectinload
+
 from ...core import session_scope
 from ...models import Order, OrderItem, Retailer
 from ...services import OrderService
@@ -132,11 +134,20 @@ class OrdersView(QWidget):
         self._apply_search_filter(self._search_field.text())
 
     def _load_orders(self, session) -> Iterable[Order]:
-        query = session.query(Order).order_by(Order.order_date.desc(), Order.id.desc())
+        query = (
+            session.query(Order)
+            .options(
+                selectinload(Order.retailer),
+                selectinload(Order.items),
+            )
+            .order_by(Order.order_date.desc(), Order.id.desc())
+        )
         retailer_code = self._current_retailer_code()
         if retailer_code != "ALL":
             retailer = (
-                session.query(Retailer).filter(Retailer.code == retailer_code).one_or_none()
+                session.query(Retailer)
+                .filter(Retailer.code == retailer_code)
+                .one_or_none()
             )
             if not retailer:
                 return []
@@ -207,6 +218,7 @@ class OrdersView(QWidget):
 
             order = Order(
                 retailer_id=result.retailer.id,
+                retailer=result.retailer,
                 order_number=result.order_number,
                 order_date=result.order_date,
                 order_email=result.order_email,
@@ -273,6 +285,7 @@ class OrdersView(QWidget):
             db_order.order_email = result.order_email
             db_order.payment_method = result.payment_method
             db_order.status = result.status
+            db_order.retailer = result.retailer
             db_order.subtotal = result.items_subtotal
             db_order.tax = Decimal("0.00")
             db_order.shipping = Decimal("0.00")
