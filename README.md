@@ -7,8 +7,8 @@ Desktop application for tracking discounted gift cards, orders, inventory, sales
 - Orders module with retailer filtering, gift card allocations, balance updates, and CSV import/export.
 - Inventory management with stock adjustments, cost tracking, and movement logging.
 - Physical inventory tracking tied to delivered orders and manual adjustments.
-- Sales tracking with profit reporting.
-- Analytics dashboard summarizing balances, status counts, and time-filtered stats.
+- Sales tracking with inventory deductions and profit reporting.
+- Analytics dashboard summarizing gift card totals, order status counts, and sales performance.
 - Accounts view covering credit cards and other payment sources.
 
 ## Tech Stack

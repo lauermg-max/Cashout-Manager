@@ -39,6 +39,14 @@ Retailer formats currently cover Best Buy, Doordash, Lowe's, Home Depot, and Ama
 - Inventory tab uses `InventoryService` to apply stock adjustments and maintain average cost.
 - Manual adjustments require either a quantity change or cost change; negative balances are prevented by service-level validation.
 
+## Sales UI Notes
+- Sales tab uses `SalesService` to deduct inventory and compute profit for each sale.
+- Editing or deleting a sale reverses its inventory adjustments automatically.
+
+## Analytics UI Notes
+- Analytics tab provides summaries for gift cards, order status counts, and sales performance.
+- Timeframe filters apply to orders and sales metrics, retailer filters apply to gift card and order metrics.
+
 ## Static Checks
 ```bash
 python -m compileall src
