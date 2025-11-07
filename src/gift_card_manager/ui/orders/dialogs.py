@@ -83,7 +83,7 @@ class OrderItemDialog(QDialog):
         self._inventory_combo.setEditable(True)
         self._inventory_combo.setInsertPolicy(QComboBox.NoInsert)
         self._inventory_combo.setMaxVisibleItems(20)
-        self._inventory_combo.lineEdit().setPlaceholderText("Select inventory item…")
+        self._inventory_combo.lineEdit().setPlaceholderText("Select inventory item...")
 
         completer = QCompleter([item.item_name for item in self._inventory_items])
         completer.setCaseSensitivity(Qt.CaseInsensitive)
@@ -93,7 +93,7 @@ class OrderItemDialog(QDialog):
             label_parts = [item.item_name]
             if item.sku:
                 label_parts.append(f"SKU: {item.sku}")
-            display = " • ".join(label_parts)
+            display = " - ".join(label_parts)
             self._inventory_combo.addItem(display, item)
 
         self._details_label = QLabel("-")

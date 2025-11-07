@@ -68,7 +68,7 @@ class OrdersView(QWidget):
         self._retailer_filter.currentIndexChanged.connect(self.refresh)
 
         self._search_field = QLineEdit()
-        self._search_field.setPlaceholderText("Search by order number…")
+        self._search_field.setPlaceholderText("Search by order number...")
         self._search_field.textChanged.connect(self._apply_search_filter)
 
         layout = QVBoxLayout()
@@ -105,10 +105,10 @@ class OrdersView(QWidget):
 
         toolbar.addSeparator()
 
-        export_action = toolbar.addAction("Export CSV…")
+        export_action = toolbar.addAction("Export CSV...")
         export_action.triggered.connect(self._export_csv)
 
-        import_action = toolbar.addAction("Import CSV…")
+        import_action = toolbar.addAction("Import CSV...")
         import_action.triggered.connect(self._import_csv)
 
         return toolbar
