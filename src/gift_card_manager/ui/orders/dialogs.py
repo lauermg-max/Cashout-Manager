@@ -9,6 +9,7 @@ from typing import List, Sequence
 
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
+    QCompleter,
     QComboBox,
     QDateEdit,
     QDialog,
@@ -30,13 +31,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...models import GiftCard, Order, Retailer
+from ...models import GiftCard, InventoryItem, Order, OrderItem, Retailer
 from ...models.enums import OrderStatus, PaymentMethod
 from ...services import GiftCardAllocation
 
 
 @dataclass
 class OrderItemEntry:
+    inventory_item_id: int | None
     item_name: str
     quantity: int
     unit_price: Decimal
@@ -66,6 +68,7 @@ class OrderItemDialog(QDialog):
     def __init__(
         self,
         *,
+        inventory_items: Sequence[InventoryItem],
         parent: QWidget | None = None,
         existing: OrderItemEntry | None = None,
     ) -> None:
@@ -73,34 +76,58 @@ class OrderItemDialog(QDialog):
 
         self.setWindowTitle("Edit Item" if existing else "Add Item")
         self._data: OrderItemEntry | None = None
+        self._inventory_items = list(inventory_items)
+        self._user_adjusted_price = existing is not None
 
-        self._item_field = QLineEdit()
-        self._sku_field = QLineEdit()
-        self._upc_field = QLineEdit()
+        self._inventory_combo = QComboBox()
+        self._inventory_combo.setEditable(True)
+        self._inventory_combo.setInsertPolicy(QComboBox.NoInsert)
+        self._inventory_combo.setMaxVisibleItems(20)
+        self._inventory_combo.lineEdit().setPlaceholderText("Select inventory item…")
+
+        completer = QCompleter([item.item_name for item in self._inventory_items])
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self._inventory_combo.setCompleter(completer)
+
+        for item in self._inventory_items:
+            label_parts = [item.item_name]
+            if item.sku:
+                label_parts.append(f"SKU: {item.sku}")
+            display = " • ".join(label_parts)
+            self._inventory_combo.addItem(display, item)
+
+        self._details_label = QLabel("-")
+        self._details_label.setWordWrap(True)
+
         self._quantity_field = QSpinBox()
         self._quantity_field.setMinimum(1)
         self._quantity_field.setMaximum(1_000_000)
+
         self._unit_price_field = QDoubleSpinBox()
         self._unit_price_field.setDecimals(2)
         self._unit_price_field.setMaximum(1_000_000)
         self._unit_price_field.setMinimum(0.0)
         self._unit_price_field.setSingleStep(1.0)
 
+        self._line_total_label = QLabel("$0.00")
+
+        self._inventory_combo.currentIndexChanged.connect(self._on_item_changed)
+        self._quantity_field.valueChanged.connect(self._update_line_total)
+        self._unit_price_field.valueChanged.connect(self._on_unit_price_changed)
+
         if existing:
-            self._item_field.setText(existing.item_name)
-            if existing.sku:
-                self._sku_field.setText(existing.sku)
-            if existing.upc:
-                self._upc_field.setText(existing.upc)
-            self._quantity_field.setValue(existing.quantity)
-            self._unit_price_field.setValue(float(existing.unit_price))
+            self._populate_from_existing(existing)
+        else:
+            self._quantity_field.setValue(1)
+            if self._inventory_items:
+                self._inventory_combo.setCurrentIndex(0)
 
         form = QFormLayout()
-        form.addRow("Name", self._item_field)
-        form.addRow("SKU", self._sku_field)
-        form.addRow("UPC", self._upc_field)
+        form.addRow("Inventory Item", self._inventory_combo)
+        form.addRow("Details", self._details_label)
         form.addRow("Quantity", self._quantity_field)
         form.addRow("Unit Price", self._unit_price_field)
+        form.addRow("Line Total", self._line_total_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -110,15 +137,16 @@ class OrderItemDialog(QDialog):
         layout.addLayout(form)
         layout.addWidget(buttons)
         self.setLayout(layout)
+        self._update_line_total()
 
     @property
     def data(self) -> OrderItemEntry | None:
         return self._data
 
     def accept(self) -> None:
-        name = self._item_field.text().strip()
-        if not name:
-            QMessageBox.warning(self, "Validation", "Item name is required.")
+        inventory_item = self._selected_inventory_item()
+        if inventory_item is None:
+            QMessageBox.warning(self, "Validation", "Select an inventory item.")
             return
 
         quantity = self._quantity_field.value()
@@ -129,19 +157,88 @@ class OrderItemDialog(QDialog):
         unit_price = Decimal(str(self._unit_price_field.value())).quantize(Decimal("0.01"))
         total_price = (unit_price * Decimal(quantity)).quantize(Decimal("0.01"))
 
-        sku = self._sku_field.text().strip() or None
-        upc = self._upc_field.text().strip() or None
-
         self._data = OrderItemEntry(
-            item_name=name,
-            sku=sku,
-            upc=upc,
+            inventory_item_id=inventory_item.id if inventory_item else None,
+            item_name=inventory_item.item_name if inventory_item else "",
             quantity=quantity,
             unit_price=unit_price,
             total_price=total_price,
+            sku=inventory_item.sku if inventory_item else None,
+            upc=inventory_item.upc if inventory_item else None,
         )
 
         super().accept()
+
+    # ---------------------------------------------------------------- Helpers
+    def _selected_inventory_item(self) -> InventoryItem | None:
+        data = self._inventory_combo.currentData(Qt.ItemDataRole.UserRole)
+        if isinstance(data, InventoryItem):
+            return data
+        return None
+
+    def _on_item_changed(self, index: int) -> None:
+        inventory_item = self._selected_inventory_item()
+        if inventory_item is None:
+            self._details_label.setText("-")
+            return
+
+        details_parts = []
+        if inventory_item.sku:
+            details_parts.append(f"SKU: {inventory_item.sku}")
+        if inventory_item.upc:
+            details_parts.append(f"UPC: {inventory_item.upc}")
+        details_parts.append(f"On hand: {inventory_item.quantity_on_hand}")
+        details_text = " | ".join(details_parts)
+        self._details_label.setText(details_text)
+
+        if not self._user_adjusted_price:
+            suggested = float(inventory_item.average_cost or 0)
+            self._unit_price_field.setValue(suggested)
+            self._update_line_total()
+
+    def _on_unit_price_changed(self, _value: float) -> None:
+        self._user_adjusted_price = True
+        self._update_line_total()
+
+    def _update_line_total(self) -> None:
+        quantity = self._quantity_field.value()
+        unit_price = Decimal(str(self._unit_price_field.value())).quantize(Decimal("0.01"))
+        total = (unit_price * Decimal(quantity)).quantize(Decimal("0.01"))
+        self._line_total_label.setText(f"${total:.2f}")
+
+    def _populate_from_existing(self, existing: OrderItemEntry) -> None:
+        self._quantity_field.setValue(existing.quantity)
+        self._unit_price_field.setValue(float(existing.unit_price))
+
+        matched_index = -1
+        if existing.inventory_item_id is not None:
+            for idx, item in enumerate(self._inventory_items):
+                if item.id == existing.inventory_item_id:
+                    matched_index = idx
+                    break
+        if matched_index == -1 and existing.sku:
+            for idx, item in enumerate(self._inventory_items):
+                if item.sku and item.sku == existing.sku:
+                    matched_index = idx
+                    break
+        if matched_index == -1 and existing.upc:
+            for idx, item in enumerate(self._inventory_items):
+                if item.upc and item.upc == existing.upc:
+                    matched_index = idx
+                    break
+        if matched_index == -1:
+            for idx, item in enumerate(self._inventory_items):
+                if item.item_name.lower() == existing.item_name.lower():
+                    matched_index = idx
+                    break
+
+        if matched_index >= 0:
+            self._inventory_combo.setCurrentIndex(matched_index)
+        else:
+            self._inventory_combo.setCurrentIndex(-1)
+            self._inventory_combo.setEditText(existing.item_name)
+
+        self._update_line_total()
 
 
 class OrderDialog(QDialog):
@@ -167,6 +264,14 @@ class OrderDialog(QDialog):
         self._result: OrderDialogResult | None = None
         self._user_adjusted_total = False
         self._setting_total_field = False
+
+        self._inventory_items: List[InventoryItem] = (
+            session.query(InventoryItem).order_by(InventoryItem.item_name).all()
+        )
+        self._inventory_by_id = {item.id: item for item in self._inventory_items}
+        self._inventory_by_sku = {item.sku: item for item in self._inventory_items if item.sku}
+        self._inventory_by_upc = {item.upc: item for item in self._inventory_items if item.upc}
+        self._inventory_by_name = {item.item_name.lower(): item for item in self._inventory_items}
 
         # ---------------------------------------------------------------- UI
         self._retailer_combo = QComboBox()
@@ -223,9 +328,9 @@ class OrderDialog(QDialog):
         self._retailer_combo.currentIndexChanged.connect(self._load_gift_cards_for_retailer)
 
         # Order items table
-        self._items_table = QTableWidget(0, 6)
+        self._items_table = QTableWidget(0, 4)
         self._items_table.setHorizontalHeaderLabels(
-            ["Item", "SKU", "UPC", "Qty", "Unit Price", "Line Total"]
+            ["Item", "Qty", "Unit Price", "Line Total"]
         )
         self._items_table.verticalHeader().setVisible(False)
         self._items_table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -234,7 +339,7 @@ class OrderDialog(QDialog):
         header: QHeaderView = self._items_table.horizontalHeader()
         header.setStretchLastSection(True)
         header.setSectionResizeMode(0, QHeaderView.Stretch)
-        for column in range(1, 6):
+        for column in range(1, 4):
             header.setSectionResizeMode(column, QHeaderView.ResizeToContents)
 
         item_buttons = QHBoxLayout()
@@ -305,10 +410,12 @@ class OrderDialog(QDialog):
                 self._set_combo_by_value(self._status_combo, existing.status)
 
             for item in existing.items:
+                inventory_item = self._match_inventory_item(item)
                 entry = OrderItemEntry(
-                    item_name=item.item_name,
-                    sku=item.sku,
-                    upc=item.upc,
+                    inventory_item_id=inventory_item.id if inventory_item else None,
+                    item_name=inventory_item.item_name if inventory_item else item.item_name,
+                    sku=inventory_item.sku if inventory_item else item.sku,
+                    upc=inventory_item.upc if inventory_item else item.upc,
                     quantity=item.quantity,
                     unit_price=Decimal(str(item.unit_price or 0)).quantize(Decimal("0.01")),
                     total_price=Decimal(str(item.total_price or 0)).quantize(Decimal("0.01")),
@@ -378,7 +485,15 @@ class OrderDialog(QDialog):
         self._allocation_combo.blockSignals(False)
 
     def _add_item(self) -> None:
-        dialog = OrderItemDialog(parent=self)
+        if not self._inventory_items:
+            QMessageBox.information(
+                self,
+                "Inventory Required",
+                "Add items to the Inventory tab before creating order lines.",
+            )
+            return
+
+        dialog = OrderItemDialog(parent=self, inventory_items=self._inventory_items)
         if dialog.exec() != OrderItemDialog.Accepted or dialog.data is None:
             return
         self._item_entries.append(dialog.data)
@@ -389,7 +504,7 @@ class OrderDialog(QDialog):
         if row < 0 or row >= len(self._item_entries):
             return
         existing = self._item_entries[row]
-        dialog = OrderItemDialog(parent=self, existing=existing)
+        dialog = OrderItemDialog(parent=self, inventory_items=self._inventory_items, existing=existing)
         if dialog.exec() != OrderItemDialog.Accepted or dialog.data is None:
             return
         self._item_entries[row] = dialog.data
@@ -407,19 +522,27 @@ class OrderDialog(QDialog):
         for row, entry in enumerate(self._item_entries):
             values = [
                 entry.item_name,
-                entry.sku or "",
-                entry.upc or "",
                 str(entry.quantity),
                 f"${entry.unit_price:.2f}",
                 f"${entry.total_price:.2f}",
             ]
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                if column >= 3:
+                if column >= 1:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self._items_table.setItem(row, column, item)
 
         self._update_totals_from_items()
+
+    def _match_inventory_item(self, order_item: OrderItem) -> InventoryItem | None:
+        if order_item.sku and order_item.sku in self._inventory_by_sku:
+            return self._inventory_by_sku[order_item.sku]
+        if order_item.upc and order_item.upc in self._inventory_by_upc:
+            return self._inventory_by_upc[order_item.upc]
+        name = (order_item.item_name or "").lower()
+        if name and name in self._inventory_by_name:
+            return self._inventory_by_name[name]
+        return None
 
     def _items_subtotal(self) -> Decimal:
         total = Decimal("0")

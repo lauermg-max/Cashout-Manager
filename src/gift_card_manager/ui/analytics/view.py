@@ -50,6 +50,7 @@ class AnalyticsView(QWidget):
         self._orders_shipped_label = QLabel("0")
         self._orders_cancelled_label = QLabel("0")
         self._orders_delivered_label = QLabel("0")
+        self._orders_returned_label = QLabel("0")
 
         self._sales_value_label = QLabel("$0.00")
         self._sales_cost_label = QLabel("$0.00")
@@ -94,6 +95,7 @@ class AnalyticsView(QWidget):
         form.addRow("Shipped", self._orders_shipped_label)
         form.addRow("Cancelled", self._orders_cancelled_label)
         form.addRow("Delivered", self._orders_delivered_label)
+        form.addRow("Returned", self._orders_returned_label)
         group.setLayout(form)
         return group
 
@@ -135,6 +137,7 @@ class AnalyticsView(QWidget):
         self._orders_shipped_label.setText(str(order_summary.shipped))
         self._orders_cancelled_label.setText(str(order_summary.cancelled))
         self._orders_delivered_label.setText(str(order_summary.delivered))
+        self._orders_returned_label.setText(str(order_summary.returned))
 
         self._sales_value_label.setText(f"${sales_summary.total_value:.2f}")
         self._sales_cost_label.setText(f"${sales_summary.total_cost:.2f}")

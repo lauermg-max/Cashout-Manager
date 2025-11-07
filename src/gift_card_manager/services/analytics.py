@@ -26,6 +26,7 @@ class OrderStatusSummary:
     shipped: int
     cancelled: int
     delivered: int
+    returned: int
 
 
 @dataclass
@@ -78,6 +79,7 @@ class AnalyticsService:
             shipped=counts[OrderStatus.SHIPPED],
             cancelled=counts[OrderStatus.CANCELLED],
             delivered=counts[OrderStatus.DELIVERED],
+            returned=counts[OrderStatus.RETURNED],
         )
 
     # -------------------------------------------------------------- Sales --

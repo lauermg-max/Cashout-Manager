@@ -21,12 +21,14 @@ class OrderStatus(str, Enum):
     SHIPPED = "shipped"
     CANCELLED = "cancelled"
     DELIVERED = "delivered"
+    RETURNED = "returned"
 
 
 class InventorySourceType(str, Enum):
     ORDER = "order"
     SALE = "sale"
     ADJUSTMENT = "adjustment"
+    ORDER_RETURN = "order_return"
 
 
 class AccountType(str, Enum):

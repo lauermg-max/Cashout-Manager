@@ -27,9 +27,9 @@ from PySide6.QtWidgets import (
 from sqlalchemy.orm import selectinload
 
 from ...core import session_scope
-from ...models import Order, OrderItem, Retailer
+from ...models import InventoryItem, Order, OrderItem, Retailer
 from ...services import OrderService
-from .dialogs import OrderDialog
+from .dialogs import OrderDialog, OrderItemEntry
 from .model import OrdersTableModel
 
 logger = logging.getLogger(__name__)
@@ -233,16 +233,7 @@ class OrdersView(QWidget):
             )
 
             for item_entry in result.items:
-                order.items.append(
-                    OrderItem(
-                        item_name=item_entry.item_name,
-                        sku=item_entry.sku,
-                        upc=item_entry.upc,
-                        quantity=item_entry.quantity,
-                        unit_price=item_entry.unit_price,
-                        total_price=item_entry.total_price,
-                    )
-                )
+                order.items.append(self._build_order_item(session, item_entry))
 
             service = OrderService(session)
 
@@ -294,16 +285,7 @@ class OrdersView(QWidget):
 
             db_order.items.clear()
             for item_entry in result.items:
-                db_order.items.append(
-                    OrderItem(
-                        item_name=item_entry.item_name,
-                        sku=item_entry.sku,
-                        upc=item_entry.upc,
-                        quantity=item_entry.quantity,
-                        unit_price=item_entry.unit_price,
-                        total_price=item_entry.total_price,
-                    )
-                )
+                db_order.items.append(self._build_order_item(session, item_entry))
 
             service = OrderService(session)
 
@@ -363,3 +345,28 @@ class OrdersView(QWidget):
         for index in selected_rows:
             rows.append(self._model.row_at(index.row()))
         return OrderSelection(rows)
+
+    def _build_order_item(self, session, entry: OrderItemEntry) -> OrderItem:
+        inventory_item: InventoryItem | None = None
+        if entry.inventory_item_id is not None:
+            inventory_item = session.get(InventoryItem, entry.inventory_item_id)
+
+        if inventory_item is None:
+            logger.debug(
+                "Inventory item not found for order entry %s (id=%s)",
+                entry.item_name,
+                entry.inventory_item_id,
+            )
+
+        item_name = inventory_item.item_name if inventory_item else entry.item_name
+        sku = inventory_item.sku if inventory_item else entry.sku
+        upc = inventory_item.upc if inventory_item else entry.upc
+
+        return OrderItem(
+            item_name=item_name,
+            sku=sku,
+            upc=upc,
+            quantity=entry.quantity,
+            unit_price=entry.unit_price,
+            total_price=entry.total_price,
+        )

@@ -168,11 +168,23 @@ class OrderService:
         """Adjust inventory movements based on order status transitions."""
 
         current_status = order.status
+
         if current_status == OrderStatus.DELIVERED:
+            if previous_status == OrderStatus.RETURNED:
+                self._reverse_order_return(order)
             if previous_status != OrderStatus.DELIVERED:
                 self._apply_order_restock(order)
-        elif previous_status == OrderStatus.DELIVERED and current_status != OrderStatus.DELIVERED:
-            self._reverse_order_restock(order)
+        elif current_status == OrderStatus.RETURNED:
+            if previous_status == OrderStatus.DELIVERED:
+                self._reverse_order_restock(order)
+            elif previous_status != OrderStatus.RETURNED:
+                self._reverse_order_restock(order)
+            self._apply_order_return(order)
+        else:
+            if previous_status == OrderStatus.DELIVERED:
+                self._reverse_order_restock(order)
+            elif previous_status == OrderStatus.RETURNED:
+                self._reverse_order_return(order)
 
     def _apply_order_restock(self, order: Order) -> None:
         """Add delivered order quantities into physical inventory."""
@@ -212,13 +224,64 @@ class OrderService:
             except Exception:  # pragma: no cover - safety log for UI
                 logger.exception("Failed to restock inventory for order %s", order.id)
 
+    def _apply_order_return(self, order: Order) -> None:
+        """Remove previously received inventory when an order is returned."""
+
+        if not order.items:
+            return
+
+        inventory_service = InventoryService(self.session)
+
+        for order_item in list(order.items):
+            inventory_item = self._find_inventory_item(order_item)
+            if inventory_item is None:
+                logger.warning(
+                    "Unable to locate inventory item for order %s item %s when marking returned",
+                    order.id,
+                    order_item.item_name,
+                )
+                continue
+
+            cost_change = self._to_decimal(order_item.total_price)
+            if cost_change == Decimal("0"):
+                unit_price = self._to_decimal(order_item.unit_price)
+                cost_change = unit_price * Decimal(order_item.quantity)
+
+            adjustment = InventoryAdjustment(
+                quantity_change=-order_item.quantity,
+                cost_change=-cost_change,
+                source_type=InventorySourceType.ORDER_RETURN,
+                source_id=order.id,
+                order_item_id=order_item.id,
+                notes=f"Order {order.order_number} returned",
+            )
+
+            try:
+                inventory_service.apply_adjustment(inventory_item, adjustment)
+            except Exception:  # pragma: no cover - safety log for UI
+                logger.exception("Failed to apply return for order %s", order.id)
+
     def _reverse_order_restock(self, order: Order) -> None:
         """Remove prior restock movements when an order is undone."""
 
+        self._reverse_movements(order, InventorySourceType.ORDER, note_prefix="restock")
+
+    def _reverse_order_return(self, order: Order) -> None:
+        """Undo inventory adjustments created by an order return."""
+
+        self._reverse_movements(order, InventorySourceType.ORDER_RETURN, note_prefix="return")
+
+    def _reverse_movements(
+        self,
+        order: Order,
+        source_type: InventorySourceType,
+        *,
+        note_prefix: str,
+    ) -> None:
         movements = self.session.execute(
             select(InventoryMovement)
             .where(
-                InventoryMovement.source_type == InventorySourceType.ORDER,
+                InventoryMovement.source_type == source_type,
                 InventoryMovement.source_id == order.id,
             )
             .order_by(InventoryMovement.id.asc())
@@ -242,16 +305,16 @@ class OrderService:
             adjustment = InventoryAdjustment(
                 quantity_change=-movement.quantity_change,
                 cost_change=-self._to_decimal(movement.cost_change),
-                source_type=InventorySourceType.ORDER,
+                source_type=source_type,
                 source_id=order.id,
                 order_item_id=movement.order_item_id,
-                notes=f"Reverse order {order.order_number} restock",
+                notes=f"Reverse order {order.order_number} {note_prefix}",
             )
 
             try:
                 reversal_movement = inventory_service.apply_adjustment(inventory_item, adjustment)
             except Exception:  # pragma: no cover - safety log for UI
-                logger.exception("Failed to reverse restock for order %s", order.id)
+                logger.exception("Failed to reverse %s for order %s", note_prefix, order.id)
                 continue
 
             self.session.delete(movement)
@@ -272,14 +335,7 @@ class OrderService:
         )
 
     def _get_or_create_inventory_item(self, order_item: OrderItem) -> InventoryItem | None:
-        if order_item.sku:
-            stmt = select(InventoryItem).where(InventoryItem.sku == order_item.sku)
-        elif order_item.upc:
-            stmt = select(InventoryItem).where(InventoryItem.upc == order_item.upc)
-        else:
-            stmt = select(InventoryItem).where(InventoryItem.item_name == order_item.item_name)
-
-        inventory_item = self.session.execute(stmt.limit(1)).scalar_one_or_none()
+        inventory_item = self._find_inventory_item(order_item)
         if inventory_item:
             return inventory_item
 
@@ -291,6 +347,16 @@ class OrderService:
         self.session.add(inventory_item)
         self.session.flush()
         return inventory_item
+
+    def _find_inventory_item(self, order_item: OrderItem) -> InventoryItem | None:
+        if order_item.sku:
+            stmt = select(InventoryItem).where(InventoryItem.sku == order_item.sku)
+        elif order_item.upc:
+            stmt = select(InventoryItem).where(InventoryItem.upc == order_item.upc)
+        else:
+            stmt = select(InventoryItem).where(InventoryItem.item_name == order_item.item_name)
+
+        return self.session.execute(stmt.limit(1)).scalar_one_or_none()
 
     def _previous_status(self, order: Order) -> OrderStatus | None:
         history = get_history(order, "status")
